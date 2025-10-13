@@ -1,0 +1,27 @@
+# Source files (only ship compiled code)
+src/
+tsconfig.json
+.env
+.env.*
+
+# Development files
+node_modules/
+.cursor/
+.vscode/
+*.log
+
+# Git files
+.git/
+.gitignore
+
+# Documentation that's not needed in package
+IMPLEMENTATION_COMPLETE.md
+API_MAPPING.md
+EXAMPLES.md
+
+# Test files
+test/
+tests/
+*.test.ts
+*.spec.ts
+
