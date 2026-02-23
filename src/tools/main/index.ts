@@ -5,6 +5,7 @@ import { createMainCollectionTools } from './collections.js';
 import { createMainMetadataTools } from './metadata.js';
 import { createMainSearchTools } from './search.js';
 import { createMainBatchTools } from './batch.js';
+import { createIIIFTools } from '../iiif/iiif.js';
 
 export function createMainTools(client: ResourceSpaceClient): MCPTool[] {
   return [
@@ -13,6 +14,7 @@ export function createMainTools(client: ResourceSpaceClient): MCPTool[] {
     ...createMainCollectionTools(client),
     ...createMainMetadataTools(client),
     ...createMainBatchTools(client),
+    ...createIIIFTools(client),
   ];
 }
 
@@ -22,5 +24,5 @@ export {
   createMainMetadataTools,
   createMainSearchTools,
   createMainBatchTools,
+  createIIIFTools,
 };
-

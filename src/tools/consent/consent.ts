@@ -4,7 +4,6 @@ import { MCPTool } from '../shared/types.js';
 
 export function createConsentTools(client: ResourceSpaceClient): MCPTool[] {
   return [
-    // Consolidated consent CRUD
     {
       name: 'consent',
       description: `Manage consent records - perform get, create, update, or delete operations.
@@ -29,89 +28,96 @@ Actions:
             if (!args.consent_id) throw new Error('consent_id required for get action');
             const consent = await client.call('get_consent', args.consent_id);
             return { consent };
-          
+
           case 'create':
             if (!args.data) throw new Error('data required for create action');
             const consentId = await client.call('create_consent', JSON.stringify(args.data));
             return { consent_id: consentId };
-          
+
           case 'update':
             if (!args.consent_id || !args.data) {
               throw new Error('consent_id and data required for update action');
             }
             await client.call('update_consent', args.consent_id, JSON.stringify(args.data));
             return { success: true };
-          
+
           case 'delete':
             if (!args.consent_id) throw new Error('consent_id required for delete action');
             await client.call('delete_consent', args.consent_id);
             return { success: true };
-          
+
           default:
             throw new Error(`Unknown action: ${args.action}`);
         }
       },
     },
     {
-      name: 'consents',
-      description: 'Get all consent records',
-      inputSchema: z.object({}),
-      handler: async () => {
+      name: 'consent_list',
+      description: 'Get consent records, optionally filtered by collection',
+      inputSchema: z.object({
+        collection_id: z.union([z.string(), z.number()]).optional()
+          .describe('Collection ID to filter by (omit for all consents)'),
+      }),
+      handler: async (args: { collection_id?: string | number }) => {
+        if (args.collection_id !== undefined) {
+          const consents = await client.call('get_consents_by_collection', args.collection_id);
+          return { consents };
+        }
         const consents = await client.call('get_consents');
         return { consents };
       },
     },
     {
-      name: 'consents_by_collection',
-      description: 'Get consent records for a specific collection',
+      name: 'consent_resource',
+      description: `Link or unlink consent records to resources.
+
+Actions:
+- link: Link a consent to a resource (requires consent_id, resource_id)
+- unlink: Unlink a consent from a resource (requires consent_id, resource_id)
+- batch_link: Link a consent to multiple resources (requires consent_id, resource_ids)
+- batch_unlink: Unlink a consent from multiple resources (requires consent_id, resource_ids)`,
       inputSchema: z.object({
-        collection_id: z.union([z.string(), z.number()]).describe('Collection ID'),
-      }),
-      handler: async (args: { collection_id: string | number }) => {
-        const consents = await client.call('get_consents_by_collection', args.collection_id);
-        return { consents };
-      },
-    },
-    {
-      name: 'consent_link',
-      description: 'Link a consent record to a resource',
-      inputSchema: z.object({
+        action: z.enum(['link', 'unlink', 'batch_link', 'batch_unlink']).describe('Operation to perform'),
         consent_id: z.union([z.string(), z.number()]).describe('Consent ID'),
-        resource_id: z.union([z.string(), z.number()]).describe('Resource ID'),
-      }),
-      handler: async (args: { consent_id: string | number; resource_id: string | number }) => {
-        await client.call('consent_link', args.consent_id, args.resource_id);
-        return { success: true };
-      },
-    },
-    {
-      name: 'consent_unlink',
-      description: 'Unlink a consent record from a resource',
-      inputSchema: z.object({
-        consent_id: z.union([z.string(), z.number()]).describe('Consent ID'),
-        resource_id: z.union([z.string(), z.number()]).describe('Resource ID'),
-      }),
-      handler: async (args: { consent_id: string | number; resource_id: string | number }) => {
-        await client.call('consent_unlink', args.consent_id, args.resource_id);
-        return { success: true };
-      },
-    },
-    {
-      name: 'consent_batch_link',
-      description: 'Link or unlink a consent record to multiple resources',
-      inputSchema: z.object({
-        consent_id: z.union([z.string(), z.number()]).describe('Consent ID'),
-        resource_ids: z.array(z.union([z.string(), z.number()])).describe('Array of resource IDs'),
-        unlink: z.boolean().optional().describe('Set to true to unlink instead of link'),
+        resource_id: z.union([z.string(), z.number()]).optional()
+          .describe('Resource ID (required for link, unlink)'),
+        resource_ids: z.array(z.union([z.string(), z.number()])).optional()
+          .describe('Array of resource IDs (required for batch_link, batch_unlink)'),
       }),
       handler: async (args: {
+        action: 'link' | 'unlink' | 'batch_link' | 'batch_unlink';
         consent_id: string | number;
-        resource_ids: (string | number)[];
-        unlink?: boolean;
+        resource_id?: string | number;
+        resource_ids?: (string | number)[];
       }) => {
-        const action = args.unlink ? 'unlink' : 'link';
-        await client.call('consent_batch_link', args.consent_id, args.resource_ids.join(','), action);
-        return { success: true, affected_count: args.resource_ids.length };
+        switch (args.action) {
+          case 'link': {
+            if (args.resource_id === undefined) throw new Error('resource_id required for link action');
+            await client.call('consent_link', args.consent_id, args.resource_id);
+            return { success: true };
+          }
+
+          case 'unlink': {
+            if (args.resource_id === undefined) throw new Error('resource_id required for unlink action');
+            await client.call('consent_unlink', args.consent_id, args.resource_id);
+            return { success: true };
+          }
+
+          case 'batch_link': {
+            if (!args.resource_ids) throw new Error('resource_ids required for batch_link action');
+            await client.call('consent_batch_link', args.consent_id, args.resource_ids.join(','), 'link');
+            return { success: true, affected_count: args.resource_ids.length };
+          }
+
+          case 'batch_unlink': {
+            if (!args.resource_ids) throw new Error('resource_ids required for batch_unlink action');
+            await client.call('consent_batch_link', args.consent_id, args.resource_ids.join(','), 'unlink');
+            return { success: true, affected_count: args.resource_ids.length };
+          }
+
+          default:
+            throw new Error(`Unknown action: ${args.action}`);
+        }
       },
     },
     {
@@ -137,4 +143,3 @@ Actions:
     },
   ];
 }
-

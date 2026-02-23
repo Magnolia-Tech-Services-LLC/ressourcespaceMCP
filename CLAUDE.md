@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ResourceSpace MCP Server — a TypeScript Model Context Protocol implementation providing 75+ tools for interacting with the ResourceSpace Digital Asset Management (DAM) API. Split into 4 modular servers to stay under the 80-tool-per-server IDE limit.
+ResourceSpace MCP Server — a TypeScript Model Context Protocol implementation providing ~30 consolidated tools for interacting with the ResourceSpace Digital Asset Management (DAM) API. Split into 2 servers to stay under the 80-tool-per-server IDE limit.
 
 ## Commands
 
@@ -13,7 +13,7 @@ npm run build          # Compile TypeScript (tsc) — also runs automatically vi
 npm run dev            # Run main server in dev mode (tsx src/index.ts)
 npm run watch          # Watch mode with tsx
 npm run start          # Run compiled main server (node dist/index.js)
-npm link               # Install globally — exposes all 4 CLI commands
+npm link               # Install globally — exposes both CLI commands
 ```
 
 No automated test suite exists. Verify changes by building (`npm run build`) and testing each affected server against a live ResourceSpace instance.
@@ -22,14 +22,12 @@ No automated test suite exists. Verify changes by building (`npm run build`) and
 
 ### Multi-Server Design
 
-Four independent MCP servers, each with its own entry point:
+Two independent MCP servers, each with its own entry point:
 
-| Server | Entry Point | CLI Command | Tools |
-|--------|-------------|-------------|-------|
-| Main | `src/index.ts` | `resourcespace-mcp-server` | 44 (resources, search, collections, metadata, batch) |
-| Admin | `src/index-admin.ts` | `resourcespace-admin-mcp` | 18 (users, groups, system) |
-| IIIF | `src/index-iiif.ts` | `resourcespace-iiif-mcp` | 5 |
-| Consent | `src/index-consent.ts` | `resourcespace-consent-mcp` | 8 |
+| Server | Entry Point | CLI Command | Domains |
+|--------|-------------|-------------|---------|
+| Main | `src/index.ts` | `resourcespace-mcp-server` | resources, search, collections, metadata, batch, IIIF |
+| Admin | `src/index-admin.ts` | `resourcespace-admin-mcp` | users, groups, system, consent |
 
 ### Key Design Patterns
 
@@ -54,14 +52,12 @@ src/
 │   ├── shared/types.ts        # MCPTool interface
 │   ├── main/                  # Main server: resources, search, collections, metadata, batch
 │   ├── admin/                 # Admin server: users, system
-│   ├── iiif/                  # IIIF server
-│   └── consent/               # Consent server
+│   ├── iiif/                  # IIIF tools (included in main server)
+│   └── consent/               # Consent tools (included in admin server)
 ├── resources/                 # MCP Resources (URI-based asset/collection browsing)
 ├── prompts/                   # MCP Prompts (workflow templates)
 ├── index.ts                   # Main server entry
-├── index-admin.ts             # Admin server entry
-├── index-iiif.ts              # IIIF server entry
-└── index-consent.ts           # Consent server entry
+└── index-admin.ts             # Admin server entry
 ```
 
 ## TypeScript Conventions

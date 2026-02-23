@@ -6,9 +6,7 @@
   "type": "module",
   "bin": {
     "resourcespace-mcp-server": "dist/index.js",
-    "resourcespace-admin-mcp": "dist/index-admin.js",
-    "resourcespace-iiif-mcp": "dist/index-iiif.js",
-    "resourcespace-consent-mcp": "dist/index-consent.js"
+    "resourcespace-admin-mcp": "dist/index-admin.js"
   },
   "files": [
     "dist/**/*",

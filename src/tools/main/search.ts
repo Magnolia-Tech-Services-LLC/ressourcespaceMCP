@@ -16,10 +16,10 @@ export function createMainSearchTools(client: ResourceSpaceClient): MCPTool[] {
         sort: z.enum(['ASC', 'DESC']).optional().describe('Sort direction'),
         start_from: z.number().optional().describe('Offset for pagination'),
       }),
-      handler: async (args: { 
-        search: string; 
-        restypes?: string; 
-        archive?: number; 
+      handler: async (args: {
+        search: string;
+        restypes?: string;
+        archive?: number;
         per_page?: number;
         order_by?: string;
         sort?: 'ASC' | 'DESC';
@@ -32,38 +32,8 @@ export function createMainSearchTools(client: ResourceSpaceClient): MCPTool[] {
         if (args.order_by !== undefined) params.push(args.order_by);
         if (args.sort !== undefined) params.push(args.sort);
         if (args.start_from !== undefined) params.push(args.start_from);
-        
+
         const results = await client.call('do_search', ...params);
-        return { results };
-      },
-    },
-    {
-      name: 'search_results',
-      description: 'Get search results with advanced options',
-      inputSchema: z.object({
-        search: z.string().describe('Search query'),
-        restypes: z.string().optional().describe('Resource type IDs'),
-        order_by: z.string().optional().describe('Sort field'),
-        archive: z.number().optional().describe('Archive status'),
-        per_page: z.number().optional().describe('Results per page'),
-        start_from: z.number().optional().describe('Pagination offset'),
-      }),
-      handler: async (args: { 
-        search: string; 
-        restypes?: string; 
-        order_by?: string;
-        archive?: number;
-        per_page?: number;
-        start_from?: number;
-      }) => {
-        const params: (string | number)[] = [args.search];
-        if (args.restypes !== undefined) params.push(args.restypes);
-        if (args.order_by !== undefined) params.push(args.order_by);
-        if (args.archive !== undefined) params.push(args.archive);
-        if (args.per_page !== undefined) params.push(args.per_page);
-        if (args.start_from !== undefined) params.push(args.start_from);
-        
-        const results = await client.call('get_search_results', ...params);
         return { results };
       },
     },
@@ -78,7 +48,7 @@ export function createMainSearchTools(client: ResourceSpaceClient): MCPTool[] {
         const params: (string | number)[] = [];
         if (args.days !== undefined) params.push(args.days);
         if (args.archive !== undefined) params.push(args.archive);
-        
+
         const resources = await client.call('get_recent_resources', ...params);
         return { resources };
       },
@@ -106,29 +76,36 @@ export function createMainSearchTools(client: ResourceSpaceClient): MCPTool[] {
       },
     },
     {
-      name: 'themes',
-      description: 'Get all available search themes',
-      inputSchema: z.object({}),
-      handler: async () => {
-        const themes = await client.call('get_themes');
-        return { themes };
-      },
-    },
-    {
-      name: 'keywords',
-      description: 'Get keyword suggestions',
+      name: 'search_discovery',
+      description: `Discover search themes and keyword suggestions.
+
+Actions:
+- themes: Get all available search themes
+- keywords: Get keyword suggestions for a prefix (requires prefix, optional field)`,
       inputSchema: z.object({
-        prefix: z.string().describe('Keyword prefix to search for'),
-        field: z.number().optional().describe('Limit to specific field ID'),
+        action: z.enum(['themes', 'keywords']).describe('Discovery operation'),
+        prefix: z.string().optional().describe('Keyword prefix to search for (required for keywords)'),
+        field: z.number().optional().describe('Limit keywords to specific field ID'),
       }),
-      handler: async (args: { prefix: string; field?: number }) => {
-        const params: (string | number)[] = [args.prefix];
-        if (args.field !== undefined) params.push(args.field);
-        
-        const keywords = await client.call('get_keywords', ...params);
-        return { keywords };
+      handler: async (args: { action: 'themes' | 'keywords'; prefix?: string; field?: number }) => {
+        switch (args.action) {
+          case 'themes': {
+            const themes = await client.call('get_themes');
+            return { themes };
+          }
+
+          case 'keywords': {
+            if (!args.prefix) throw new Error('prefix required for keywords action');
+            const params: (string | number)[] = [args.prefix];
+            if (args.field !== undefined) params.push(args.field);
+            const keywords = await client.call('get_keywords', ...params);
+            return { keywords };
+          }
+
+          default:
+            throw new Error(`Unknown action: ${args.action}`);
+        }
       },
     },
   ];
 }
-

@@ -4,7 +4,6 @@ import { MCPTool } from '../shared/types.js';
 
 export function createMainCollectionTools(client: ResourceSpaceClient): MCPTool[] {
   return [
-    // Consolidated CRUD for collections
     {
       name: 'collection',
       description: `Manage collections - perform get, create, update, delete, or copy operations.
@@ -34,7 +33,7 @@ Actions:
             if (!args.collection_id) throw new Error('collection_id required for get action');
             const collection = await client.call('get_collection', args.collection_id);
             return { collection };
-          
+
           case 'create':
             if (!args.name) throw new Error('name required for create action');
             const createParams: (string | number | boolean)[] = [args.name];
@@ -42,7 +41,7 @@ Actions:
             if (args.allow_changes !== undefined) createParams.push(args.allow_changes ? 1 : 0);
             const collectionId = await client.call('create_collection', ...createParams);
             return { collection_id: collectionId };
-          
+
           case 'update':
             if (!args.collection_id) throw new Error('collection_id required for update action');
             const updateParams: (string | number | boolean)[] = [args.collection_id];
@@ -51,17 +50,17 @@ Actions:
             if (args.allow_changes !== undefined) updateParams.push(args.allow_changes ? 1 : 0);
             await client.call('update_collection', ...updateParams);
             return { success: true };
-          
+
           case 'delete':
             if (!args.collection_id) throw new Error('collection_id required for delete action');
             await client.call('delete_collection', args.collection_id);
             return { success: true };
-          
+
           case 'copy':
             if (!args.collection_id) throw new Error('collection_id required for copy action');
             const newId = await client.call('copy_collection', args.collection_id);
             return { new_collection_id: newId };
-          
+
           default:
             throw new Error(`Unknown action: ${args.action}`);
         }
@@ -80,26 +79,21 @@ Actions:
     },
     {
       name: 'collections',
-      description: 'Get all collections for the current user',
+      description: 'Get collections for the current user or all public collections',
       inputSchema: z.object({
         user_id: z.union([z.string(), z.number()]).optional().describe('Get collections for specific user (admin only)'),
+        public_only: z.boolean().optional().describe('Set to true to get only public collections'),
       }),
-      handler: async (args: { user_id?: string | number }) => {
+      handler: async (args: { user_id?: string | number; public_only?: boolean }) => {
+        if (args.public_only) {
+          const collections = await client.call('get_public_collections');
+          return { collections };
+        }
         const params: (string | number)[] = args.user_id !== undefined ? [args.user_id] : [];
         const collections = await client.call('get_collections', ...params);
         return { collections };
       },
     },
-    {
-      name: 'public_collections',
-      description: 'Get all public collections',
-      inputSchema: z.object({}),
-      handler: async () => {
-        const collections = await client.call('get_public_collections');
-        return { collections };
-      },
-    },
-    // Consolidated collection-resource operations
     {
       name: 'collection_resource',
       description: `Manage resources in collections - add or remove operations.
@@ -121,11 +115,11 @@ Actions:
           case 'add':
             await client.call('add_resource_to_collection', args.resource_id, args.collection_id);
             return { success: true };
-          
+
           case 'remove':
             await client.call('remove_resource_from_collection', args.resource_id, args.collection_id);
             return { success: true };
-          
+
           default:
             throw new Error(`Unknown action: ${args.action}`);
         }
@@ -142,7 +136,7 @@ Actions:
       handler: async (args: { collection_id: string | number; emails: string; message?: string }) => {
         const params: (string | number)[] = [args.collection_id, args.emails];
         if (args.message !== undefined) params.push(args.message);
-        
+
         await client.call('share_collection', ...params);
         return { success: true };
       },
@@ -172,4 +166,3 @@ Actions:
     },
   ];
 }
-
