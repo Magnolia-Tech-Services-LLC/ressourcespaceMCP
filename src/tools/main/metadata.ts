@@ -64,7 +64,7 @@ Actions:
 - list: Get all fields for a resource type (optional resource_type)
 - options: Get dropdown/checkbox options for a field (requires field_id)
 - values: Get all distinct values used in a field (requires field_id)
-- create: Create a new field (requires name, field_type, optional resource_type, shortname)
+- create: Create a new field (requires name, field_type, optional resource_type)
 - update_schema: Update field properties like display_condition, title, order_by (requires field_id, columns)`,
       inputSchema: z.object({
         action: z.enum(['list', 'options', 'values', 'create', 'update_schema']).describe('Operation to perform'),
@@ -106,20 +106,15 @@ Actions:
           case 'create': {
             if (!args.name) throw new Error('name required for create action');
             if (args.field_type === undefined) throw new Error('field_type required for create action');
-            const rt = args.resource_type !== undefined ? args.resource_type : 0;
-            const params: (string | number)[] = [args.name, rt, args.field_type];
-            if (args.shortname) params.push(args.shortname);
-            const result = await client.call('create_resource_type_field', ...params);
+            const rt = args.resource_type !== undefined ? String(args.resource_type) : '0';
+            const result = await client.call('create_resource_type_field', args.name, rt, args.field_type);
             return { result };
           }
 
           case 'update_schema': {
             if (args.field_id === undefined) throw new Error('field_id required for update_schema action');
             if (!args.columns || Object.keys(args.columns).length === 0) throw new Error('columns required for update_schema action');
-            const result = await client.callWithParams('magnolia_update_resource_type_field', {
-              ref: args.field_id as number,
-              columns: JSON.stringify(args.columns),
-            });
+            const result = await client.call('magnolia_update_resource_type_field', args.field_id, JSON.stringify(args.columns));
             return { result };
           }
 
