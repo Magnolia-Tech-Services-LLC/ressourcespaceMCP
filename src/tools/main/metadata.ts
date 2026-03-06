@@ -58,21 +58,31 @@ Actions:
     },
     {
       name: 'field_info',
-      description: `Get field definitions, options, and values.
+      description: `Get field definitions, options, and values. Create fields and update field properties.
 
 Actions:
 - list: Get all fields for a resource type (optional resource_type)
 - options: Get dropdown/checkbox options for a field (requires field_id)
-- values: Get all distinct values used in a field (requires field_id)`,
+- values: Get all distinct values used in a field (requires field_id)
+- create: Create a new field (requires name, field_type, optional resource_type, shortname)
+- update_schema: Update field properties like display_condition, title, order_by (requires field_id, columns)`,
       inputSchema: z.object({
-        action: z.enum(['list', 'options', 'values']).describe('Operation to perform'),
-        field_id: z.union([z.string(), z.number()]).optional().describe('Field ID (required for options, values)'),
-        resource_type: z.number().optional().describe('Resource type ID (optional for list)'),
+        action: z.enum(['list', 'options', 'values', 'create', 'update_schema']).describe('Operation to perform'),
+        field_id: z.union([z.string(), z.number()]).optional().describe('Field ID (required for options, values, update_schema)'),
+        resource_type: z.number().optional().describe('Resource type ID (optional for list, create)'),
+        name: z.string().optional().describe('Field title (required for create)'),
+        field_type: z.number().optional().describe('Field type constant: 0=text, 1=textarea, 2=check, 3=dropdown, 4=date, 5=radio, 7=category_tree, 8=text_lg, 9=dynamic_keywords (required for create)'),
+        shortname: z.string().optional().describe('Short name / URL-safe identifier (optional for create)'),
+        columns: z.record(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Object of column => value pairs to update. Allowed: title, active, order_by, required, display_field, display_condition, display_template, exiftool_field, help_text, tooltip_text, tab, global, iptc_equiv'),
       }),
       handler: async (args: {
-        action: 'list' | 'options' | 'values';
+        action: 'list' | 'options' | 'values' | 'create' | 'update_schema';
         field_id?: string | number;
         resource_type?: number;
+        name?: string;
+        field_type?: number;
+        shortname?: string;
+        columns?: Record<string, string | number | boolean>;
       }) => {
         switch (args.action) {
           case 'list': {
@@ -91,6 +101,26 @@ Actions:
             if (args.field_id === undefined) throw new Error('field_id required for values action');
             const values = await client.call('get_field_values', args.field_id);
             return { values };
+          }
+
+          case 'create': {
+            if (!args.name) throw new Error('name required for create action');
+            if (args.field_type === undefined) throw new Error('field_type required for create action');
+            const rt = args.resource_type !== undefined ? args.resource_type : 0;
+            const params: (string | number)[] = [args.name, rt, args.field_type];
+            if (args.shortname) params.push(args.shortname);
+            const result = await client.call('create_resource_type_field', ...params);
+            return { result };
+          }
+
+          case 'update_schema': {
+            if (args.field_id === undefined) throw new Error('field_id required for update_schema action');
+            if (!args.columns || Object.keys(args.columns).length === 0) throw new Error('columns required for update_schema action');
+            const result = await client.callWithParams('magnolia_update_resource_type_field', {
+              ref: args.field_id as number,
+              columns: JSON.stringify(args.columns),
+            });
+            return { result };
           }
 
           default:
