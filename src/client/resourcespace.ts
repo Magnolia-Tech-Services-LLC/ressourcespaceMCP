@@ -27,18 +27,17 @@ export class ResourceSpaceClient {
   }
 
   /**
-   * Build query string from parameters
-   * Note: Query string is NOT URL encoded for signature calculation per ResourceSpace API docs
+   * Build query string from parameters (raw, unencoded)
    */
   private buildQueryString(params: ResourceSpaceRequestParams): string {
     const sortedParams: Record<string, string> = {};
-    
+
     // Add user first
     sortedParams.user = this.config.resourcespace.user;
-    
+
     // Add function
     sortedParams.function = params.function;
-    
+
     // Add other parameters with param prefix
     let paramIndex = 1;
     Object.keys(params).forEach((key) => {
@@ -51,7 +50,6 @@ export class ResourceSpaceClient {
       }
     });
 
-    // Return unencoded query string (encoding happens in axios, but signature is calculated on unencoded)
     return Object.entries(sortedParams)
       .map(([key, value]) => `${key}=${value}`)
       .join('&');
@@ -64,9 +62,17 @@ export class ResourceSpaceClient {
     params: ResourceSpaceRequestParams,
     attempt: number = 1
   ): Promise<T> {
-    const queryString = this.buildQueryString(params);
-    const signature = this.generateSignature(queryString);
-    const fullUrl = `/api/?${queryString}&sign=${signature}`;
+    const rawQueryString = this.buildQueryString(params);
+
+    // Use new URL() to normalize the query string the same way axios does internally.
+    // axios passes the URL through new URL() which encodes certain characters (e.g. " → %22).
+    // The RS server receives this encoded form and uses it for signature verification,
+    // so we must sign the encoded form to match.
+    const tempUrl = new URL(`http://localhost/api/?${rawQueryString}`);
+    const normalizedQueryString = tempUrl.search.slice(1); // remove leading '?'
+
+    const signature = this.generateSignature(normalizedQueryString);
+    const fullUrl = `/api/?${normalizedQueryString}&sign=${signature}`;
 
     try {
       const response = await this.axiosInstance.get(fullUrl);

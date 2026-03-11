@@ -73,7 +73,7 @@ Actions:
         name: z.string().optional().describe('Field title (required for create)'),
         field_type: z.number().optional().describe('Field type constant: 0=text, 1=textarea, 2=check, 3=dropdown, 4=date, 5=radio, 7=category_tree, 8=text_lg, 9=dynamic_keywords (required for create)'),
         shortname: z.string().optional().describe('Short name / URL-safe identifier (optional for create)'),
-        columns: z.record(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Object of column => value pairs to update. Allowed: title, active, order_by, required, display_field, display_condition, display_template, exiftool_field, help_text, tooltip_text, tab, global, iptc_equiv'),
+        columns: z.record(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Object of column => value pairs to update. Allowed: title, type, active, order_by, required, display_field, display_condition, display_template, exiftool_field, exiftool_filter, help_text, tooltip_text, regexp_filter, tab, smart_theme_name, iptc_equiv, global, field_constraint'),
       }),
       handler: async (args: {
         action: 'list' | 'options' | 'values' | 'create' | 'update_schema';
