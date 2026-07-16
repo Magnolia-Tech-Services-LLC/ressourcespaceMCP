@@ -27,16 +27,20 @@ export class ResourceSpaceClient {
   }
 
   /**
-   * Build query string from parameters (raw, unencoded)
+   * Build the API query string, encoded via URLSearchParams (application/x-www-form-urlencoded:
+   * space → `+`) to match ResourceSpace's own server-side signature reconstruction. A prior fix
+   * (#2) normalized through `new URL()` instead, which encodes space as `%20` (RFC 3986) — that
+   * matches RS for most characters (e.g. `"` → `%22`) but diverges specifically on space,
+   * producing a signature mismatch for any space-containing value. See #3.
    */
   private buildQueryString(params: ResourceSpaceRequestParams): string {
-    const sortedParams: Record<string, string> = {};
+    const searchParams = new URLSearchParams();
 
     // Add user first
-    sortedParams.user = this.config.resourcespace.user;
+    searchParams.set('user', this.config.resourcespace.user);
 
     // Add function
-    sortedParams.function = params.function;
+    searchParams.set('function', params.function);
 
     // Add other parameters with param prefix
     let paramIndex = 1;
@@ -44,15 +48,13 @@ export class ResourceSpaceClient {
       if (key !== 'function') {
         const value = params[key];
         if (value !== undefined && value !== null) {
-          sortedParams[`param${paramIndex}`] = String(value);
+          searchParams.set(`param${paramIndex}`, String(value));
           paramIndex++;
         }
       }
     });
 
-    return Object.entries(sortedParams)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('&');
+    return searchParams.toString();
   }
 
   /**
@@ -62,17 +64,13 @@ export class ResourceSpaceClient {
     params: ResourceSpaceRequestParams,
     attempt: number = 1
   ): Promise<T> {
-    const rawQueryString = this.buildQueryString(params);
-
-    // Use new URL() to normalize the query string the same way axios does internally.
-    // axios passes the URL through new URL() which encodes certain characters (e.g. " → %22).
-    // The RS server receives this encoded form and uses it for signature verification,
-    // so we must sign the encoded form to match.
-    const tempUrl = new URL(`http://localhost/api/?${rawQueryString}`);
-    const normalizedQueryString = tempUrl.search.slice(1); // remove leading '?'
-
-    const signature = this.generateSignature(normalizedQueryString);
-    const fullUrl = `/api/?${normalizedQueryString}&sign=${signature}`;
+    // buildQueryString already returns the exact application/x-www-form-urlencoded string
+    // (via URLSearchParams) that will be transmitted — sign it directly with no further
+    // normalization. axios does not re-encode a pre-built path+query string, so this is
+    // byte-for-byte what ResourceSpace receives.
+    const queryString = this.buildQueryString(params);
+    const signature = this.generateSignature(queryString);
+    const fullUrl = `/api/?${queryString}&sign=${signature}`;
 
     try {
       const response = await this.axiosInstance.get(fullUrl);
