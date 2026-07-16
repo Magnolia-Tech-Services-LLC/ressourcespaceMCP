@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `tools/list` advertised zod's internal `_def.shape()` as a tool's `inputSchema.properties`, which is not valid JSON Schema. Array-typed parameters (`resource_ids`, `nodes`, `to_resources`, `resource_order`, etc. across `batch`, `metadata`, `consent`, and `collections` tools) were misinterpreted by at least one MCP client, which serialized them as JSON-encoded strings — failing the real validation (`tool.inputSchema.parse(args)`) with `"expected array, received string"`. Now converts via `zod-to-json-schema`. (#4)
+- Schema conversion logic extracted to shared utility function with proper error handling to prevent server crashes
+- Added type-safe `MCPInputSchema` interface for MCP-compatible JSON Schema structures
 - Signature mismatch (`401 Invalid signature`) for any parameter value containing a space. The query-string normalization added in #2 (fixing a separate mismatch for `"` characters) used `new URL()`, which encodes space as `%20` — ResourceSpace's server-side signing does not match this for space specifically. Query strings are now built via `URLSearchParams`, matching `application/x-www-form-urlencoded` conventions (space encoded as `+`) for both cases. (#3)
 
 ## [1.0.0] - 2025-01-13

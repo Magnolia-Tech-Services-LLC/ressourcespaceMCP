@@ -10,6 +10,7 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { loadConfig } from './config.js';
 import { ResourceSpaceClient } from './client/resourcespace.js';
 import { createMainTools } from './tools/main/index.js';
@@ -56,17 +57,21 @@ class ResourceSpaceMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: this.tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: {
-            type: 'object',
-            properties: tool.inputSchema._def.shape(),
-            required: Object.keys(tool.inputSchema._def.shape()).filter(
-              (key) => !tool.inputSchema._def.shape()[key].isOptional()
-            ),
-          },
-        })),
+        tools: this.tools.map((tool) => {
+          // Convert to real JSON Schema (zodToJsonSchema) rather than exposing zod's
+          // internal _def.shape() — that's a map of ZodType instances, not a valid JSON
+          // Schema, and clients that build tool-call arguments from the advertised schema
+          // (rather than trusting the model verbatim) can misinterpret array-typed fields
+          // as strings. See #4.
+          const { $schema: _schema, ...inputSchema } = zodToJsonSchema(tool.inputSchema, {
+            $refStrategy: 'none',
+          }) as Record<string, unknown>;
+          return {
+            name: tool.name,
+            description: tool.description,
+            inputSchema,
+          };
+        }),
       };
     });
 
