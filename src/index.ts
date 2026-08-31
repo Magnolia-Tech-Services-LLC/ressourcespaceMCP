@@ -10,13 +10,13 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { loadConfig } from './config.js';
 import { ResourceSpaceClient } from './client/resourcespace.js';
 import { createMainTools } from './tools/main/index.js';
 import { createAllResources } from './resources/index.js';
 import { createAllPrompts } from './prompts/index.js';
 import { ResourceSpaceError } from './types/resourcespace.js';
+import { convertZodSchemaToMCP } from './tools/shared/schema-utils.js';
 
 class ResourceSpaceMCPServer {
   private server: Server;
@@ -58,19 +58,27 @@ class ResourceSpaceMCPServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: this.tools.map((tool) => {
-          // Convert to real JSON Schema (zodToJsonSchema) rather than exposing zod's
-          // internal _def.shape() — that's a map of ZodType instances, not a valid JSON
-          // Schema, and clients that build tool-call arguments from the advertised schema
-          // (rather than trusting the model verbatim) can misinterpret array-typed fields
-          // as strings. See #4.
-          const { $schema: _schema, ...inputSchema } = zodToJsonSchema(tool.inputSchema, {
-            $refStrategy: 'none',
-          }) as Record<string, unknown>;
-          return {
-            name: tool.name,
-            description: tool.description,
-            inputSchema,
-          };
+          try {
+            const inputSchema = convertZodSchemaToMCP(tool.inputSchema);
+            return {
+              name: tool.name,
+              description: tool.description,
+              inputSchema,
+            };
+          } catch (error) {
+            // Log error but don't crash the server - skip this tool
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Failed to convert schema for tool ${tool.name}: ${message}`);
+            // Return a minimal valid schema as fallback
+            return {
+              name: tool.name,
+              description: tool.description,
+              inputSchema: {
+                type: 'object' as const,
+                properties: {},
+              },
+            };
+          }
         }),
       };
     });
