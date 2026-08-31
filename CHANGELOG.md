@@ -5,6 +5,12 @@ All notable changes to the ResourceSpace MCP Server will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Signature mismatch (`401 Invalid signature`) for any parameter value containing a space. The query-string normalization added in #2 (fixing a separate mismatch for `"` characters) used `new URL()`, which encodes space as `%20` — ResourceSpace's server-side signing does not match this for space specifically. Query strings are now built via `URLSearchParams`, matching `application/x-www-form-urlencoded` conventions (space encoded as `+`) for both cases. (#3)
+
 ## [1.0.0] - 2025-01-13
 
 ### Added
